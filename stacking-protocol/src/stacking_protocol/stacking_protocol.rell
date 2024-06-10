@@ -32,8 +32,6 @@ operation unstake (id: byte_array) {
     fetched_unstake_request.status = "processed";
     val nft_stake = stakes @ { .id == stake_id};
     nft_stake.status = "terminated"; 
-    // delete unstake_request @ { .id == fetched_unstake_request.id };
-    // delete stakes @ { .id == stake_id};
 }
 
 operation unyield(id: byte_array) {
