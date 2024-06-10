@@ -1,0 +1,103 @@
+@test module;
+
+import stacking_protocol.*;
+import lib.ft4.assets.external.*;
+import lib.ft4.accounts.external.*;
+import lib.ft4.test.utils. { ft_auth_operation_for };
+
+function test_buy_and_stake_nft() {
+    val alice = rell.test.keypairs.alice;
+    val trudy = rell.test.keypairs.trudy;
+    val economy_account = rell.test.keypairs.frank;
+
+    rell.test.tx()
+        .op(create_user(alice.pub)).sign(alice)
+        .op(create_user(trudy.pub)).sign(trudy)
+        .run();
+    rell.test.tx()
+        .op(ft_auth_operation_for(alice.pub))
+        .op(buy_nft(100)).sign(alice)
+        .run();
+
+    val nft = get_all_nfts()[0];
+    rell.test.tx()  
+        .op(ft_auth_operation_for(alice.pub))
+        .op(stake_nft(nft.id, 20))
+        .sign(alice)
+        .run();
+    val stakes = get_all_stackes()[0];
+    val alice_acc = get_account(alice.pub);
+    val new_nft = get_all_nfts()[0];
+
+    rell.test.tx()
+        .op(ft_auth_operation_for(alice.pub))
+        .op(nft_unstake_request(stakes.id))
+        .sign(alice)
+        .run();
+
+    val unstake_requests = get_all_unstake_requests()[0];
+
+    assert_equals(get_asset_balance(alice_acc, dapp_meta.asset.id)!!.amount, 900);
+    assert_equals(stakes.stacked_by, nft.owner);
+    assert_equals(new_nft.balance, 80);
+    assert_equals(unstake_requests.stakes.stacked_by, stakes.stacked_by);
+
+    rell.test.tx()
+        .op(ft_auth_operation_for(alice.pub))
+        .op(unstake(unstake_requests.id))
+        .sign(alice)
+        .run();
+    val new_nft_after_unstke = get_all_nfts()[0]; 
+    val stakes_after_unstke = get_all_stackes()[0];
+    val new_unstake_requests = get_all_unstake_requests()[0];
+
+   
+    assert_equals(new_nft_after_unstke.balance, 100);
+    assert_equals(stakes_after_unstke.status, "terminated");
+    assert_equals(new_unstake_requests.status, "processed");
+}
+
+
+
+function test_unyield_nft() {
+    val alice = rell.test.keypairs.alice;
+    val trudy = rell.test.keypairs.trudy;
+    val economy_account = rell.test.keypairs.frank;
+
+    rell.test.tx()
+        .op(create_user(alice.pub)).sign(alice)
+        .op(create_user(trudy.pub)).sign(trudy)
+        .run();
+    rell.test.tx()
+        .op(ft_auth_operation_for(alice.pub))
+        .op(buy_nft(100)).sign(alice)
+        .run();
+
+    val nft = get_all_nfts()[0];
+    rell.test.tx()  
+        .op(ft_auth_operation_for(alice.pub))
+        .op(stake_nft(nft.id, 20))
+        .sign(alice)
+        .run();
+    val stakes = get_all_stackes()[0];
+    val alice_acc = get_account(alice.pub);
+    val new_nft = get_all_nfts()[0];
+
+    rell.test.tx()
+        .op(ft_auth_operation_for(alice.pub))
+        .op(unyield(stakes.id))
+        .sign(alice)
+        .run();
+    val nft_after_unyield = get_all_nfts()[0];
+
+    assert_equals(get_asset_balance(alice_acc, dapp_meta.asset.id)!!.amount, 900);
+    assert_equals(stakes.stacked_by, nft.owner);
+    assert_equals(new_nft.balance, 80);
+    //assert_false(nft_after_unyield.balance, 80);
+
+}
+
+function get_account(pubkey) {
+    val response = get_accounts_by_signer(pubkey, 1, null);
+    return list<(id: byte_array)>.from_gtv_pretty(response.data.to_gtv())[0].id;
+}

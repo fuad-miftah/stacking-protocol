@@ -1,0 +1,55 @@
+operation buy_nft(balance: integer) {
+    val account = auth.authenticate(is_strict = false);
+    Unsafe.transfer(account, dapp_meta.account, dapp_meta.asset, balance);
+    mint_nft(account, balance);
+}
+
+operation stake_nft(id: byte_array, amount: integer) {
+    val account = auth.authenticate(is_strict = false);
+    val (nft, owner) = nft @ { .id == id } ( $, .owner );
+    require(owner == account, "User must be owner of NFT");
+    create stakes ( .nft = nft, .amount = amount, .stacked_by = owner );
+    nft.balance = nft.balance - amount;
+}
+
+operation nft_unstake_request(id: byte_array) {
+    val account = auth.authenticate(is_strict = false);
+    val stake = stakes @ { .id == id};
+    require(stake.stacked_by == account, "User must be owner of NFT");
+    require(stake.status == "active", "Terminated Stake");
+    create unstake_request(stake);
+}
+
+operation unstake (id: byte_array) {
+    val account = auth.authenticate(is_strict = false);
+    val fetched_unstake_request = unstake_request @ { .id == id};
+    val stake_id = fetched_unstake_request.stakes.id;
+    require(fetched_unstake_request.stakes.stacked_by == account, "User must be owner of NFT");
+    require(fetched_unstake_request.status == "pending", "Already Proccessed");
+    require(fetched_unstake_request.process_at < op_context.last_block_time, "Two Weeks must pass");
+    val nft = nft @ { .id == fetched_unstake_request.stakes.nft.id};
+    nft.balance = nft.balance + fetched_unstake_request.stakes.amount;
+    fetched_unstake_request.status = "processed";
+    val nft_stake = stakes @ { .id == stake_id};
+    nft_stake.status = "terminated"; 
+    // delete unstake_request @ { .id == fetched_unstake_request.id };
+    // delete stakes @ { .id == stake_id};
+}
+
+operation unyield(id: byte_array) {
+    val account = auth.authenticate(is_strict = false);
+    val stake = stakes @ { .id == id};
+    require(stake.stacked_by == account, "User must be owner of NFT");
+    require(stake.status == "active", "Terminated stake");
+    val nft = nft @ {.id == stake.nft.id};
+    // simple interest = principal × rate × time
+    val date_difference = op_context.last_block_time - stake.stacked_at;
+    val principal = stake.amount;
+    val annual_yield_rate = 0.10;
+    val daily_yield_rate = annual_yield_rate / 365;
+    val date_difference_in_days = date_difference / (60 * 60 * 24);
+    val profit_so_far = principal * daily_yield_rate * date_difference_in_days;
+
+    nft.balance = nft.balance + profit_so_far - stake.yield_taken;
+    stake.yield_taken = profit_so_far;
+}

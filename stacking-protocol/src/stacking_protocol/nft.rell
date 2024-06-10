@@ -1,0 +1,29 @@
+entity nft {
+    key id: byte_array = op_context.transaction.tx_rid;
+    mutable owner: account;
+    index owner;
+    mutable balance: decimal;
+}
+
+entity stakes{
+    key id: byte_array = op_context.transaction.tx_rid;
+    index stacked_by: account;
+    index nft;
+    stacked_at: timestamp = op_context.last_block_time;
+    amount: decimal;
+    mutable yield_taken: decimal = 0;
+    mutable status: text = "active";
+}
+
+entity unstake_request{
+    key id: byte_array = op_context.transaction.tx_rid;
+    index stakes;
+    requested_at: timestamp = op_context.last_block_time;
+    process_at: timestamp = op_context.last_block_time + (60 * 60 * 24 * 14);
+    mutable status: text = "pending";
+}
+
+
+function mint_nft(account, balance: integer) {
+    create nft(.owner = account, .balance = balance);
+}

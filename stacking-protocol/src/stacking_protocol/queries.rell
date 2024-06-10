@@ -1,0 +1,62 @@
+query get_all_accounts()
+{
+    return account @* {} ($.to_struct());
+}
+
+query get_all_balances()
+{
+    return balance @* {} ($.account.to_struct(), $.to_struct());
+}
+
+query get_all_nfts() {
+    return nft @* {} ( nft_dto( 
+        owner = .owner, 
+        id = .id,
+        balance = .balance ) );
+}
+
+query get_all_stackes() {
+    return stakes @* {} ( stakes_dto(
+        stacked_by = .stacked_by,
+        id = .id,
+        nft = .nft,
+        amount = .amount,
+        stacked_at = .stacked_at,
+        yield_taken = .yield_taken,
+        status = .status
+    ) );
+}
+
+query get_all_unstake_requests() {
+    return unstake_request @* {} ( unstake_request_dto(
+        stakes = .stakes,
+        id = .id,
+        requested_at = .requested_at,
+        process_at = .process_at,
+        status = .status
+    ) );
+}
+
+struct nft_dto {
+    owner: account;
+    balance: decimal;
+    id: byte_array;
+}
+
+struct stakes_dto {
+    id: byte_array;
+    stacked_by: account;
+    nft: nft;
+    amount: decimal;
+    stacked_at: timestamp;
+    yield_taken: decimal;
+    status: text;
+}
+
+struct unstake_request_dto {
+    id: byte_array;
+    stakes: stakes;
+    requested_at: timestamp;
+    process_at: timestamp;
+    status: text;
+}
